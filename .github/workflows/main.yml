@@ -1,0 +1,100 @@
+name: Main CI
+
+on: [ push, pull_request, workflow_dispatch ]
+
+jobs:
+  static_analysis:
+    name: Static Analyzer
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v2
+      - uses: actions/setup-node@v2
+      - run: npm install
+        working-directory: ./api
+      - run: npm install
+        working-directory: ./client
+      - name: Run ESLint on Node API
+        run: npm run lint
+        working-directory: ./api
+      - name: Run ESLint on React Client
+        run: npm run lint
+        working-directory: ./client
+  test:
+    name: Integration Tests
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v2
+      - uses: actions/setup-node@v2
+      - run: npm install
+        working-directory: ./api
+      - run: npm install
+        working-directory: ./client
+      - name: Start MongoDB
+        uses: supercharge/mongodb-github-action@1.6.0
+      - name: Run Tests on Node API
+        run: npm run test
+        working-directory: ./api
+      - name: Run Tests on React Client
+        run: npm run testcov
+        working-directory: ./client
+  publish:
+    name: Publish Images to Docker Hub
+    needs:
+      - static_analysis
+      - test
+    runs-on: ubuntu-latest
+    if: github.ref == 'refs/heads/main'
+    steps:
+      - uses: actions/checkout@v2
+      - name: Login to Docker Hub
+        uses: docker/login-action@v1
+        with:
+          username: ${{ secrets.DOCKER_HUB_USERNAME }}
+          password: ${{ secrets.DOCKER_HUB_ACCESS_TOKEN }}
+      - name: Push API Image to Docker Hub
+        uses: docker/build-push-action@v2
+        with:
+          context: ./api
+          file: ./api/Dockerfile
+          push: true
+          tags: ak1738/mern-template-api:latest
+      - name: Push Client Image to Docker Hub
+        uses: docker/build-push-action@v2
+        with:
+          context: ./client
+          file: ./client/Dockerfile
+          push: true
+          tags: ak1738/mern-template-client:latest
+      - name: Push NGINX Image to Docker Hub
+        uses: docker/build-push-action@v2
+        with:
+          context: ./nginx
+          file: ./nginx/Dockerfile
+          push: true
+          tags: ak1738/mern-template-nginx:latest
+  deploy:
+    name: Deploy to AWS Elastic Beanstalk
+    needs:
+      - static_analysis
+      - test
+      - publish
+    runs-on: ubuntu-latest
+    if: github.ref == 'refs/heads/main'
+    steps:
+      - uses: actions/checkout@v2
+      - name: Generate Deployment Package
+        run: zip -r deploy.zip . -x '*.git*' '**/node_modules/*'
+      - name: Deploy to EB
+        uses: einaregilsson/beanstalk-deploy@v16
+        with:
+          aws_access_key: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws_secret_key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          application_name: ${{ secrets.AWS_EB_APP_NAME }}
+          environment_name: ${{ secrets.AWS_EB_ENV_NAME }}
+          version_label: researchify-app-${{ github.SHA }}
+          version_description: Commit ${{ github.SHA }} deployed by github actions
+          region: "us-east-1"
+          deployment_package: deploy.zip
+          use_existing_version_if_available: true
+          wait_for_deployment: true
+          wait_for_environment_recovery: 60

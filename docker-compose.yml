@@ -1,0 +1,28 @@
+# NOTE: this is a production compose file used for the AWS deployment.
+version: '3'
+services:
+  client:
+    image: 'ak1738/mern-template-client'
+    hostname: 'client'
+    deploy:
+      resources:
+        limits:
+          memory: 128m
+  api:
+    image: 'ak1738/mern-template-api'
+    hostname: 'api'
+    deploy:
+      resources:
+        limits:
+          memory: 256m
+    environment:
+      - DB_CONNECTION_URI=$DB_CONNECTION_URI
+  nginx:
+    image: 'ak1738/mern-template-nginx'
+    hostname: 'nginx'
+    deploy:
+      resources:
+        limits:
+          memory: 128m
+    ports:
+      - "80:80"

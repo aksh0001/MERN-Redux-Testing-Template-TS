@@ -1,0 +1,21 @@
+{
+  "env": {
+    "commonjs": true,
+    "es2021": true,
+    "node": true,
+    "browser": true
+  },
+  "extends": [
+    "eslint:recommended",
+    "airbnb"
+  ],
+  "parserOptions": {
+    "ecmaVersion": 12
+  },
+  "rules": {
+    "max-len": "off",
+    "react/jsx-filename-extension": "off",
+    "no-console": "off",
+    "no-underscore-dangle": "off"
+  }
+}
